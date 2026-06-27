@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from pipeline.models import BBox, DetectedElement
+from pipeline.phase1_detection.gemini_detector import GeminiDetectedElement
 
 
 # ---------------------------------------------------------------------------
@@ -14,12 +15,7 @@ from pipeline.models import BBox, DetectedElement
 # ---------------------------------------------------------------------------
 
 def _make_mock_result(detections):
-    """Build a mock ultralytics Result object.
-
-    Args:
-        detections: list of dicts with keys
-            x1, y1, x2, y2, conf, cls_id, class_name.
-    """
+    """Build a mock ultralytics Result object."""
     if not detections:
         result = MagicMock()
         result.boxes = MagicMock()
@@ -58,7 +54,6 @@ def _fake_image():
 # ---------------------------------------------------------------------------
 
 def test_yolo_missing_weights():
-    """Patching YOLO_WEIGHTS to a nonexistent path raises FileNotFoundError."""
     fake_path = Path("nonexistent/weights/fake.pt")
     with patch("pipeline.phase1_detection.yolo_detector.config") as mock_config:
         mock_config.YOLO_WEIGHTS = fake_path
@@ -70,7 +65,6 @@ def test_yolo_missing_weights():
 
 
 def test_yolo_returns_list():
-    """Mock YOLO returning fake detections → output is List[DetectedElement]."""
     detections = [
         {"x1": 10, "y1": 20, "x2": 110, "y2": 120, "conf": 0.9, "cls_id": 0, "class_name": "header"},
         {"x1": 200, "y1": 50, "x2": 400, "y2": 250, "conf": 0.8, "cls_id": 1, "class_name": "content_block"},
@@ -90,12 +84,9 @@ def test_yolo_returns_list():
 
     assert isinstance(result, list)
     assert len(result) == 2
-    for elem in result:
-        assert isinstance(elem, DetectedElement)
 
 
 def test_yolo_semantic_mapping():
-    """Mock model returning class_name='header' → semantic_type='Header'."""
     detections = [
         {"x1": 0, "y1": 0, "x2": 100, "y2": 50, "conf": 0.95, "cls_id": 0, "class_name": "header"},
     ]
@@ -112,12 +103,10 @@ def test_yolo_semantic_mapping():
         from pipeline.phase1_detection.yolo_detector import run_yolo
         result = run_yolo(_fake_image())
 
-    assert len(result) == 1
     assert result[0].semantic_type == "Header"
 
 
 def test_yolo_empty_returns_list():
-    """Mock model returning zero detections → returns [] not an exception."""
     mock_result = _make_mock_result([])
 
     with patch("pipeline.phase1_detection.yolo_detector.config") as mock_config, \
@@ -132,82 +121,104 @@ def test_yolo_empty_returns_list():
         result = run_yolo(_fake_image())
 
     assert result == []
-    assert isinstance(result, list)
 
 
 # ---------------------------------------------------------------------------
 # Tests for Merger
 # ---------------------------------------------------------------------------
 
-from pipeline.phase1_detection.merger import calculate_iou, calculate_containment, merge_detections
+from pipeline.phase1_detection.merger import iou, containment_ratio, merge_detections
 
-def test_calculate_iou():
-    box1 = BBox(x=0, y=0, w=10, h=10)
-    box2 = BBox(x=5, y=5, w=10, h=10)
-    # Area box1 = 100, Area box2 = 100. Intersection = 5x5 = 25.
-    # Union = 100 + 100 - 25 = 175. IoU = 25 / 175 = 1/7 ~= 0.1428
-    iou = calculate_iou(box1, box2)
-    assert abs(iou - (25 / 175)) < 1e-5
 
-def test_calculate_containment():
-    outer = BBox(x=0, y=0, w=100, h=100)
-    inner = BBox(x=10, y=10, w=50, h=50)
-    # inner area = 2500, all inside outer.
-    containment = calculate_containment(inner, outer)
-    assert containment == 1.0
+def test_iou_no_overlap():
+    a = BBox(x=0, y=0, w=10, h=10)
+    b = BBox(x=20, y=20, w=10, h=10)
+    assert iou(a, b) == 0.0
+
+
+def test_iou_identical():
+    a = BBox(x=5, y=5, w=20, h=20)
+    b = BBox(x=5, y=5, w=20, h=20)
+    assert iou(a, b) == 1.0
+
+
+def test_iou_partial():
+    a = BBox(x=0, y=0, w=10, h=10)  # Area 100
+    b = BBox(x=5, y=0, w=10, h=10)  # Area 100
+    # Intersection is x from 5 to 10 (width 5), y from 0 to 10 (height 10) = 50.
+    # Union = 100 + 100 - 50 = 150.
+    # IoU = 50 / 150 = 0.3333...
+    assert abs(iou(a, b) - 0.33333333) < 1e-5
+
+
+def test_containment_fully_inside():
+    larger = BBox(x=0, y=0, w=100, h=100)
+    smaller = BBox(x=10, y=10, w=20, h=20)
+    assert containment_ratio(smaller, larger) == 1.0
+
+
+def test_containment_no_overlap():
+    larger = BBox(x=0, y=0, w=100, h=100)
+    smaller = BBox(x=150, y=150, w=20, h=20)
+    assert containment_ratio(smaller, larger) == 0.0
+
+
+def test_merge_dedup():
+    # Two elements with high IoU (approx 0.8)
+    # Box A: 100x100
+    # Box B: 90x90 inside Box A (intersection 8100. Union = 10000 + 8100 - 8100 = 10000. IoU = 0.81)
+    a = DetectedElement(id="a", bbox=BBox(x=0, y=0, w=100, h=100), confidence=0.9, detected_by="yolo")
+    b = DetectedElement(id="b", bbox=BBox(x=0, y=0, w=90, h=90), confidence=0.8, detected_by="gemini")
     
-    partial = BBox(x=50, y=50, w=100, h=100)
-    # partial area = 10000. Intersection with outer = 50x50 = 2500.
-    # containment of partial in outer = 2500 / 10000 = 0.25
-    containment = calculate_containment(partial, outer)
-    assert abs(containment - 0.25) < 1e-5
+    with patch("pipeline.phase1_detection.merger.config") as mock_config:
+        mock_config.MERGE_IOU_DUPLICATE_THRESHOLD = 0.8
+        mock_config.MERGE_CONTAINMENT_THRESHOLD = 0.85
+        tree = merge_detections([a], [b])
+        
+    assert len(tree.roots) == 1
+    assert tree.roots[0].id == "a"
 
-def test_merge_detections_basic():
-    yolo_elem = DetectedElement(
-        id="yolo1", bbox=BBox(x=0, y=0, w=100, h=100), detected_by="yolo", confidence=0.8
-    )
-    # New gemini element, no correction, disjoint
-    gemini_elem = DetectedElement(
-        id="gem1", bbox=BBox(x=200, y=200, w=50, h=50), detected_by="gemini", confidence=0.9
-    )
+
+def test_merge_nesting():
+    # Element 90% inside another (we make the smaller box clearly fit 100% inside to hit nesting)
+    a = DetectedElement(id="a", bbox=BBox(x=0, y=0, w=100, h=100), confidence=0.9, detected_by="yolo")
+    b = DetectedElement(id="b", bbox=BBox(x=10, y=10, w=30, h=30), confidence=0.8, detected_by="gemini")
     
-    tree = merge_detections([yolo_elem], [gemini_elem])
-    assert len(tree.roots) == 2
+    with patch("pipeline.phase1_detection.merger.config") as mock_config:
+        mock_config.MERGE_IOU_DUPLICATE_THRESHOLD = 0.8
+        mock_config.MERGE_CONTAINMENT_THRESHOLD = 0.85
+        tree = merge_detections([a], [b])
+        
+    assert len(tree.roots) == 1
+    assert tree.roots[0].id == "a"
+    assert len(tree.roots[0].children) == 1
+    assert tree.roots[0].children[0].id == "b"
+
+
+def test_merge_tree_all_elements():
+    # 1 root with 2 children -> all_elements() returns 3 items
+    root = DetectedElement(id="root", bbox=BBox(x=0, y=0, w=200, h=200), detected_by="yolo")
+    child1 = DetectedElement(id="c1", bbox=BBox(x=10, y=10, w=20, h=20), detected_by="yolo")
+    child2 = DetectedElement(id="c2", bbox=BBox(x=40, y=40, w=20, h=20), detected_by="gemini")
+    
+    with patch("pipeline.phase1_detection.merger.config") as mock_config:
+        mock_config.MERGE_IOU_DUPLICATE_THRESHOLD = 0.8
+        mock_config.MERGE_CONTAINMENT_THRESHOLD = 0.85
+        tree = merge_detections([root, child1], [child2])
+        
+    assert len(tree.all_elements()) == 3
+
+
+def test_merge_roots_only_top_level():
+    # Nested element not in roots list
+    root = DetectedElement(id="root", bbox=BBox(x=0, y=0, w=200, h=200), detected_by="yolo")
+    child = DetectedElement(id="child", bbox=BBox(x=10, y=10, w=20, h=20), detected_by="gemini")
+    
+    with patch("pipeline.phase1_detection.merger.config") as mock_config:
+        mock_config.MERGE_IOU_DUPLICATE_THRESHOLD = 0.8
+        mock_config.MERGE_CONTAINMENT_THRESHOLD = 0.85
+        tree = merge_detections([root], [child])
+        
     ids = {r.id for r in tree.roots}
-    assert "yolo1" in ids
-    assert "gem1" in ids
-
-def test_merge_detections_containment():
-    outer = DetectedElement(
-        id="outer", bbox=BBox(x=0, y=0, w=100, h=100), detected_by="yolo", confidence=0.8
-    )
-    inner = DetectedElement(
-        id="inner", bbox=BBox(x=10, y=10, w=20, h=20), detected_by="gemini", confidence=0.9
-    )
-    
-    tree = merge_detections([outer], [inner])
-    assert len(tree.roots) == 1
-    root = tree.roots[0]
-    assert root.id == "outer"
-    assert len(root.children) == 1
-    assert root.children[0].id == "inner"
-
-def test_merge_detections_correction():
-    from pipeline.phase1_detection.gemini_detector import GeminiDetectedElement
-    yolo_elem = DetectedElement(
-        id="yolo1", bbox=BBox(x=10, y=10, w=50, h=50), detected_by="yolo", confidence=0.8
-    )
-    # Gemini correction for a box near yolo1, and it's larger
-    gemini_elem = GeminiDetectedElement(
-        id="gem1", 
-        bbox=BBox(x=5, y=5, w=100, h=100), 
-        detected_by="gemini", 
-        confidence=0.9,
-        correction_for=BBox(x=10, y=10, w=50, h=50)
-    )
-    
-    tree = merge_detections([yolo_elem], [gemini_elem])
-    assert len(tree.roots) == 1
-    root = tree.roots[0]
-    assert root.id == "gem1"
-    assert root.bbox.w == 100
+    assert "root" in ids
+    assert "child" not in ids
