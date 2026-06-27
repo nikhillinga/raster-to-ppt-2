@@ -1,0 +1,11 @@
+.env
+output/
+weights/
+.cache/
+logs/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.pt
+*.egg-info/
