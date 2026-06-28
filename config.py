@@ -1,4 +1,6 @@
 from pathlib import Path
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 ROOT_DIR = Path(__file__).parent
 OUTPUT_DIR = ROOT_DIR / "output"
@@ -7,7 +9,7 @@ WEIGHTS_DIR = ROOT_DIR / "weights"
 SAMPLE_DIR = ROOT_DIR / "samples"
 
 # YOLO
-YOLO_WEIGHTS = WEIGHTS_DIR / "yolo_raster.pt"
+YOLO_WEIGHTS = WEIGHTS_DIR / "slide_yolov8.pt"
 YOLO_CONF_THRESHOLD = 0.25
 YOLO_IOU_THRESHOLD = 0.45
 YOLO_IMAGE_SIZE = 1280
@@ -17,13 +19,13 @@ YOLO_CLASSES = [
 ]
 
 # Gemini
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_MAX_TOKENS = 4096
 GEMINI_TEMPERATURE = 0.1
-GEMINI_ITER_MAX = 3
+GEMINI_ITER_MAX = 2
 GEMINI_ITER_STOP_THRESHOLD = 0
 GEMINI_RETRY_MAX = 3
-GEMINI_RETRY_BACKOFF = [1, 2, 4]
+GEMINI_RETRY_BACKOFF = [5, 15, 30]
 
 # Merge / Dedup
 MERGE_IOU_DUPLICATE_THRESHOLD = 0.7
@@ -45,7 +47,7 @@ ALWAYS_CROP_TYPES = ["BackgroundArt", "Chart", "Icon"]
 ALWAYS_RECONSTRUCT_TYPES = ["Header", "TextBlock", "Arrow"]
 
 # Phase 3A — Reconstruct
-SHAPE_VERTEX_TOLERANCE = 0.04
+SHAPE_VERTEX_TOLERANCE = 0.06
 SHAPE_STAR_CONCAVITY_RATIO = 0.7
 SHAPE_ARROW_ASPECT_RATIO = 4.0
 SHAPE_MIN_AREA_PX = 500
@@ -57,6 +59,7 @@ FONT_BOLD_MIN_SIZE_PX = 18
 FONT_FAMILY = "Arial"
 TEXT_BOX_PADDING_PX = 8
 TEXT_COLOR_SAMPLE_RADIUS = 3
+OCR_MIN_CONFIDENCE = 60
 
 # Phase 3A — Arrows
 ARROW_MIN_LENGTH_PX = 20

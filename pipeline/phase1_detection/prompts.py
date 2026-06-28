@@ -1,6 +1,8 @@
 """Prompt templates for Gemini VLM detection and refinement."""
 
 DETECTION_PASS_1 = """
+CRITICAL: You MUST respond with valid JSON only. Use exactly this schema with no deviations:
+
 You are analyzing a slide image to identify all distinct visual elements.
 
 Detect every element visible in this slide. For each element, return:
@@ -29,18 +31,33 @@ Rules:
 - Do NOT merge overlapping elements — return them all
 - Return ONLY valid JSON. No explanation text.
 
+Do NOT use box_2d format. Do NOT use label field instead of semantic_type.
+Use bbox with x,y,w,h and semantic_type exactly as shown.
+
 Return format:
 {"elements": [...]}
 """
 
 DETECTION_PASS_N = """
+CRITICAL: You MUST respond with valid JSON only. Use exactly this schema with no deviations:
+
 The image shows a slide with boxes already drawn (in magenta) around previously detected elements.
 
 Your task:
 1. Find any elements that do NOT yet have a magenta box around them — return these as new detections (correction_for: null)
 2. Find any existing magenta boxes that look CLIPPED or TOO SMALL relative to the actual element they cover — return a corrected, larger box for these (set correction_for to the approximate bbox of the clipped box)
 
-Use the same schema as before. Return ONLY valid JSON.
+Use the same schema as before:
+- bbox: {x, y, w, h} in pixels
+- semantic_type: one of [Section, NestedSection, TextBlock, Header, Icon, DiagramShape, Arrow, Table, Chart, BackgroundArt]
+- confidence: 0.0–1.0
+- label: short descriptive text
+- correction_for: null or {x, y, w, h}
+
+Do NOT use box_2d format. Do NOT use label field instead of semantic_type.
+Use bbox with x,y,w,h and semantic_type exactly as shown.
+
+Return ONLY valid JSON.
 {"elements": [...]}
 """
 
