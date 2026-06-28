@@ -147,6 +147,36 @@ def test_remove_text_fills_region():
     assert sampled_color[2] == 200
 
 
+def test_remove_text_blue_background():
+    # Create a 200x200 solid blue image (BGR 255, 0, 0)
+    img = np.full((200, 200, 3), (255, 0, 0), dtype=np.uint8)
+    
+    # Add white text area in the center (BGR 255, 255, 255)
+    img[80:120, 80:120] = 255
+    
+    element_bbox = BBox(x=0, y=0, w=200, h=200)
+    
+    # Create an OCRLine with bbox covering that white region, is_art=False
+    line = OCRLine(
+        text="TEST", 
+        bbox=BBox(x=80, y=80, w=40, h=40), 
+        font_size_pt=12.0, 
+        color_rgb=(255, 255, 255), 
+        bold=False, 
+        is_art=False
+    )
+    
+    result = remove_text(img, [line], element_bbox, dark_bg=True)
+    
+    # Assert: the text region in result is now blue
+    sampled_color = result[100, 100]
+    
+    # It should be blue (255, 0, 0)
+    assert sampled_color[0] == 255
+    assert sampled_color[1] == 0
+    assert sampled_color[2] == 0
+
+
 def test_star_shape_type():
     img = _white_image()
     # Create points for a 5-pointed star
