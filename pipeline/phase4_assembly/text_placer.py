@@ -4,9 +4,9 @@ from pptx.util import Pt, Emu
 from pptx.dml.color import RGBColor
 
 import config
-from pipeline.models import DetectedElement
+from pipeline.models import DetectedElement, ElementTree
 
-def render_text_lines(element: DetectedElement, target):
+def render_text_lines(element: DetectedElement, target, tree: ElementTree):
     """Place each OCRLine as its own no-wrap text box at its true position."""
     # We must import px_to_emu inside the function to avoid circular imports 
     # if it's imported at the module level.
@@ -17,10 +17,10 @@ def render_text_lines(element: DetectedElement, target):
             continue
 
         txBox = target.shapes.add_textbox(
-            Emu(px_to_emu(line.bbox.x, "x")),
-            Emu(px_to_emu(line.bbox.y, "y")),
-            Emu(px_to_emu(line.bbox.w, "x") + px_to_emu(config.TEXT_BOX_PADDING_PX, "x")),
-            Emu(px_to_emu(line.bbox.h, "y")),
+            Emu(px_to_emu(line.bbox.x, "x", tree.source_image_w, tree.source_image_h)),
+            Emu(px_to_emu(line.bbox.y, "y", tree.source_image_w, tree.source_image_h)),
+            Emu(px_to_emu(tree.source_image_w - line.bbox.x, "x", tree.source_image_w, tree.source_image_h)),
+            Emu(px_to_emu(line.bbox.h, "y", tree.source_image_w, tree.source_image_h)),
         )
         tf = txBox.text_frame
         tf.word_wrap = False

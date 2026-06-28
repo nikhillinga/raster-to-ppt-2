@@ -70,10 +70,12 @@ def extract_lines(element: DetectedElement, source_image: np.ndarray) -> List[OC
         text = data["text"][i]
         if not text.strip():
             continue
-            
+        conf = int(data["conf"][i])
+        
         line_num = data["line_num"][i]
         lines[line_num].append({
             "text": text,
+            "conf": conf,
             "left": data["left"][i],
             "top": data["top"][i],
             "width": data["width"][i],
@@ -85,7 +87,18 @@ def extract_lines(element: DetectedElement, source_image: np.ndarray) -> List[OC
     
     for line_num, words in lines.items():
         text_str = " ".join(w["text"] for w in words if w["text"].strip())
-        if not text_str.strip():
+        stripped = text_str.strip()
+        if not stripped:
+            continue
+            
+        avg_conf = sum(w["conf"] for w in words) / len(words)
+        if avg_conf < config.OCR_MIN_CONFIDENCE:
+            continue
+            
+        # Bug 4 extended filters: drop phantom/artifact lines
+        if len(stripped) <= 3 and not stripped.isalnum():
+            continue
+        if "_" in stripped or stripped.startswith("'"):
             continue
             
         lefts = [w["left"] for w in words]
@@ -121,8 +134,9 @@ def extract_lines(element: DetectedElement, source_image: np.ndarray) -> List[OC
             bold = False
         else:
             gray_line = cv2.cvtColor(line_crop, cv2.COLOR_BGR2GRAY)
-            # Find pixels darker than 128 (ink pixels)
-            ink_mask = gray_line < 128
+            # Find darkest pixels inside the bbox
+            p5 = np.percentile(gray_line, 5)
+            ink_mask = gray_line <= p5
             
             if np.any(ink_mask):
                 pixels = line_crop[ink_mask]
@@ -149,7 +163,7 @@ def extract_lines(element: DetectedElement, source_image: np.ndarray) -> List[OC
             bold = (median_stroke / max(line_height_px, 1) > config.FONT_BOLD_STROKE_RATIO 
                     and line_height_px >= config.FONT_BOLD_MIN_SIZE_PX)
                     
-        is_art = not bool(re.search(r'[a-zA-Z0-9]', text_str))
+        is_art = not any(c.isalnum() for c in stripped)
         
         ocr_lines.append(OCRLine(
             text=text_str,

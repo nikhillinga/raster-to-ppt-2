@@ -10,6 +10,7 @@ Detect every element visible in this slide. For each element, return:
 - semantic_type: one of [Section, NestedSection, TextBlock, Header, Icon, DiagramShape, Arrow, Table, Chart, BackgroundArt]
 - confidence: 0.0–1.0
 - label: a short descriptive label (e.g. "Tier 1 container", "Year 1943 milestone card")
+- parent_id: id of containing element, or null if top-level
 - correction_for: null (always null in Pass 1)
 
 Semantic type definitions:
@@ -28,6 +29,7 @@ Rules:
 - Include ALL elements, including decorative ones
 - Detect nested elements as separate entries (a Section AND its children are separate entries)
 - For text inside a shape, the shape and its text are SEPARATE elements
+- For elements that are visually contained within a larger element (e.g. text inside a shape, shapes inside a diagram), set parent_id to the id of the containing element.
 - Do NOT merge overlapping elements — return them all
 - Return ONLY valid JSON. No explanation text.
 
@@ -52,7 +54,10 @@ Use the same schema as before:
 - semantic_type: one of [Section, NestedSection, TextBlock, Header, Icon, DiagramShape, Arrow, Table, Chart, BackgroundArt]
 - confidence: 0.0–1.0
 - label: short descriptive text
+- parent_id: id of containing element, or null if top-level
 - correction_for: null or {x, y, w, h}
+
+For elements that are visually contained within a larger element (e.g. text inside a shape, shapes inside a diagram), set parent_id to the id of the containing element.
 
 Do NOT use box_2d format. Do NOT use label field instead of semantic_type.
 Use bbox with x,y,w,h and semantic_type exactly as shown.
