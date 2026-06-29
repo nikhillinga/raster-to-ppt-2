@@ -73,6 +73,7 @@ _LABEL_TO_SEMANTIC: List[Tuple[List[str], str]] = [
     (["icon", "logo", "symbol"], "Icon"),
     (["table"], "Table"),
     (["triangle", "star", "circle", "hexagon", "rectangle", "shape", "diagram"], "DiagramShape"),
+    (["line", "divider", "separator", "dashed"], "BackgroundArt"),
     (["background", "bg", "art"], "BackgroundArt"),
 ]
 

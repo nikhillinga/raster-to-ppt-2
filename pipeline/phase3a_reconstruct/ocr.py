@@ -25,11 +25,11 @@ def safe_text_area(element: DetectedElement, source_image: np.ndarray) -> BBox:
         w_new = int(bbox.w * 0.7)
         new_bbox = BBox(x=bbox.x + x_inset, y=bbox.y + y_inset, w=w_new, h=h_new)
     elif shape_type == "star":
-        # center 40% of both dimensions
-        x_inset = int(bbox.w * 0.3)
-        y_inset = int(bbox.h * 0.3)
-        w_new = int(bbox.w * 0.4)
-        h_new = int(bbox.h * 0.4)
+        # center 60% of both dimensions
+        x_inset = int(bbox.w * 0.2)
+        y_inset = int(bbox.h * 0.2)
+        w_new = int(bbox.w * 0.6)
+        h_new = int(bbox.h * 0.6)
         new_bbox = BBox(x=bbox.x + x_inset, y=bbox.y + y_inset, w=w_new, h=h_new)
     elif shape_type in ["pill", "circle"]:
         # center 70% of both dimensions

@@ -95,7 +95,14 @@ def merge_detections(
     for elem in working_list:
         should_keep = True
         for kept in kept_list:
-            if iou(elem.bbox, kept.bbox) >= config.MERGE_IOU_DUPLICATE_THRESHOLD:
+            current_iou = iou(elem.bbox, kept.bbox)
+            if current_iou >= config.MERGE_IOU_DUPLICATE_THRESHOLD:
+                should_keep = False
+                break
+            # Same semantic_type + IoU >= 0.3: discard the smaller one
+            if (elem.semantic_type == kept.semantic_type
+                    and current_iou >= 0.3
+                    and elem.bbox.area <= kept.bbox.area):
                 should_keep = False
                 break
         if should_keep:

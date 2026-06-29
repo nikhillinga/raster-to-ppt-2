@@ -44,7 +44,7 @@ COMPLEXITY_DETECTION_DENSITY_WEIGHT = 0.3
 COMPLEXITY_EDGE_DENSITY_WEIGHT = 0.3
 CROP_THRESHOLD = 0.55
 ALWAYS_CROP_TYPES = ["BackgroundArt", "Chart", "Icon"]
-ALWAYS_RECONSTRUCT_TYPES = ["Header", "TextBlock", "Arrow"]
+ALWAYS_RECONSTRUCT_TYPES = ["Header", "TextBlock", "Arrow", "line", "divider"]
 
 # Phase 3A — Reconstruct
 SHAPE_VERTEX_TOLERANCE = 0.06
