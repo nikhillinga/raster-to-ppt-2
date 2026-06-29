@@ -62,14 +62,12 @@ def merge_detections(
                     min_dist = dist
                     closest_yolo = y_elem
                     
-        # If closest YOLO element is within 50px AND gemini bbox area > yolo bbox area * 1.05
+        # Apply correction whenever closest YOLO is within 50px (Gemini boxes can be
+        # smaller/more precise than YOLO, so no area comparison needed)
         if closest_yolo is not None and min_dist <= 50:
-            if g_elem.bbox.area > closest_yolo.bbox.area * 1.05:
-                # replace the YOLO element's bbox with gemini element's bbox
-                closest_yolo.bbox = g_elem.bbox
-                # Note: The prompt says "replace the YOLO element's bbox", it didn't explicitly say 
-                # replace the whole element, just the bbox. We will update the bbox.
-        # Otherwise: discard the correction
+            closest_yolo.bbox = g_elem.bbox
+            if g_elem.semantic_type:
+                closest_yolo.semantic_type = g_elem.semantic_type
 
     # ---------------------------------------------------------
     # Step 2 — Add genuinely new Gemini detections

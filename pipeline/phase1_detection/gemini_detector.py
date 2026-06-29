@@ -14,6 +14,7 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 import config
 from pipeline.models import BBox, DetectedElement
+from pipeline.phase1_detection.merger import iou
 from pipeline.phase1_detection.prompts import DETECTION_PASS_1, DETECTION_PASS_N
 
 # Load .env and configure Gemini once when the module loads
@@ -211,7 +212,13 @@ def run_gemini_detection(
             logger.info(f"Gemini returned {len(new_elements)} elements. Stopping iterations.")
             break
             
-        all_gemini_elements.extend(new_elements)
+        for new_elem in new_elements:
+            is_dup = any(
+                iou(new_elem.bbox, existing.bbox) >= config.MERGE_IOU_DUPLICATE_THRESHOLD
+                for existing in all_gemini_elements
+            )
+            if not is_dup:
+                all_gemini_elements.append(new_elem)
         current_boxes.extend(new_elements)
         
         logger.info(f"Gemini iteration {i+1} found {len(new_elements)} elements.")
