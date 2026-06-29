@@ -91,7 +91,10 @@ def extract_lines(element: DetectedElement, source_image: np.ndarray) -> List[OC
         if not stripped:
             continue
             
-        avg_conf = sum(w["conf"] for w in words) / len(words)
+        valid_confs = [w["conf"] for w in words if w["conf"] >= 0]
+        if not valid_confs:
+            continue
+        avg_conf = sum(valid_confs) / len(valid_confs)
         if avg_conf < config.OCR_MIN_CONFIDENCE:
             continue
             

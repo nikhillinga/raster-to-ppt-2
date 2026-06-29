@@ -19,7 +19,7 @@ def render_text_lines(element: DetectedElement, target, tree: ElementTree):
         txBox = target.shapes.add_textbox(
             Emu(px_to_emu(line.bbox.x, "x", tree.source_image_w, tree.source_image_h)),
             Emu(px_to_emu(line.bbox.y, "y", tree.source_image_w, tree.source_image_h)),
-            Emu(px_to_emu(tree.source_image_w - line.bbox.x, "x", tree.source_image_w, tree.source_image_h)),
+            Emu(px_to_emu(min(int(line.bbox.w * 1.2), tree.source_image_w - line.bbox.x), "x", tree.source_image_w, tree.source_image_h)),
             Emu(px_to_emu(line.bbox.h, "y", tree.source_image_w, tree.source_image_h)),
         )
         tf = txBox.text_frame
